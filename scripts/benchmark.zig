@@ -1,5 +1,5 @@
 const std = @import("std");
-const Pager = @import("src/pager.zig").Pager;
+const Pager = @import("../src/pager.zig").Pager;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -54,7 +54,7 @@ pub fn main() !void {
         @as(f64, @floatFromInt(pager_write)) / n,
         @as(f64, @floatFromInt(pager_read)) / n,
     });
-    
+
     // Prevent optimizer from removing the reads
     std.mem.doNotOptimizeAway(sum);
 }

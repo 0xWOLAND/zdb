@@ -1,6 +1,6 @@
 const std = @import("std");
-const root = @import("src/root.zig");
-const Pager = @import("src/pager.zig").Pager;
+const root = @import("../src/root.zig");
+const Pager = @import("../src/pager.zig").Pager;
 
 const TestTree = root.BTree(i32, []const u8, 4096, 0);
 
