@@ -1,6 +1,6 @@
 `zbd`
 
-This is an educational implementation of a B+ tree database inspired by [redb](https://github.com/cberner/redb) written in Zig. It similarly uses OS-level CoW. 
+This is an educational implementation of a B<sup>+</sup>-tree database inspired by [redb](https://github.com/cberner/redb) written in Zig. It similarly uses OS-level CoW. 
 
 ### Usage
 
@@ -23,3 +23,4 @@ Comparison of in-memory vs persistent pager
 - [] SQL parser
 - [] MVCC
 - [] concurrency
+- [] make dx cleaner
