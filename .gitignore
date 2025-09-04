@@ -1,0 +1,28 @@
+# Zig build artifacts
+zig-out/
+zig-cache/
+.zig-cache/
+
+# Compiled binaries and libraries
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.o
+
+# Editor and IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+test_btree
+perf_test
+*.log
