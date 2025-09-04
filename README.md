@@ -18,3 +18,8 @@ Comparison of in-memory vs persistent pager
 |-----------|---------|--------|
 | Write | 3ns/op | 5,361ns/op |
 | Read | - | 827ns/op |
+
+### TODO
+- [] SQL parser
+- [] MVCC
+- [] concurrency
