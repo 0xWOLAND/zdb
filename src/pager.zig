@@ -40,7 +40,7 @@ pub const Pager = struct {
     meta: *MetaPage,
     page_count: u32,
     allocator: mem.Allocator,
-    dirty_pages: std.AutoHashMap(u32, []u8),
+    dirty_pages: std.AutoHashMap(u32, void),
     tx_active: bool,
 
     pub fn init(allocator: mem.Allocator, path: []const u8) !Pager {
@@ -74,7 +74,7 @@ pub const Pager = struct {
             null,
             initial_size,
             posix.PROT.READ | posix.PROT.WRITE,
-            .{ .TYPE = .PRIVATE },
+            .{ .TYPE = .SHARED },
             file.handle,
             0
         );
@@ -85,7 +85,7 @@ pub const Pager = struct {
             .meta = @ptrCast(@alignCast(map.ptr)),
             .page_count = @intCast(initial_size / PAGE_SIZE),
             .allocator = allocator,
-            .dirty_pages = std.AutoHashMap(u32, []u8).init(allocator),
+            .dirty_pages = std.AutoHashMap(u32, void).init(allocator),
             .tx_active = false,
         };
 
@@ -97,10 +97,6 @@ pub const Pager = struct {
     }
 
     pub fn deinit(self: *Pager) void {
-        var iter = self.dirty_pages.iterator();
-        while (iter.next()) |entry| {
-            self.allocator.free(entry.value_ptr.*);
-        }
         self.dirty_pages.deinit();
         posix.munmap(self.map);
         self.file.close();
@@ -114,42 +110,19 @@ pub const Pager = struct {
     pub fn commitTx(self: *Pager) !void {
         if (!self.tx_active) return error.NoActiveTransaction;
         
-        var iter = self.dirty_pages.iterator();
-        while (iter.next()) |entry| {
-            const page_id = entry.key_ptr.*;
-            const data = entry.value_ptr.*;
-            const offset = page_id * PAGE_SIZE;
-            try self.file.pwriteAll(data, offset);
-            
-            // Also update the mmap'd memory so reads see the new data
-            @memcpy(self.map[offset..offset + PAGE_SIZE], data);
+        // Only sync if we have dirty pages
+        if (self.dirty_pages.count() > 0) {
+            self.meta.tx_id += 1;
+            try posix.msync(self.map, posix.MSF.SYNC);
+            self.dirty_pages.clearRetainingCapacity();
         }
-
-        try self.file.sync();
-
-        self.meta.tx_id += 1;
-        const meta_bytes = mem.asBytes(self.meta);
-        try self.file.pwriteAll(meta_bytes[0..PAGE_SIZE], 0);
-        try self.file.sync();
-
-        iter = self.dirty_pages.iterator();
-        while (iter.next()) |entry| {
-            self.allocator.free(entry.value_ptr.*);
-        }
-        self.dirty_pages.clearRetainingCapacity();
         
         self.tx_active = false;
     }
 
     pub fn rollbackTx(self: *Pager) void {
         if (!self.tx_active) return;
-        
-        var iter = self.dirty_pages.iterator();
-        while (iter.next()) |entry| {
-            self.allocator.free(entry.value_ptr.*);
-        }
         self.dirty_pages.clearRetainingCapacity();
-        
         self.tx_active = false;
     }
 
@@ -157,11 +130,6 @@ pub const Pager = struct {
         if (page_id >= self.page_count) {
             return error.PageOutOfBounds;
         }
-
-        if (self.dirty_pages.get(page_id)) |page| {
-            return page;
-        }
-
         const offset = page_id * PAGE_SIZE;
         return self.map[offset..offset + PAGE_SIZE];
     }
@@ -169,19 +137,10 @@ pub const Pager = struct {
     pub fn getPageForWrite(self: *Pager, page_id: u32) ![]u8 {
         if (!self.tx_active) return error.NoActiveTransaction;
         if (page_id >= self.page_count) return error.PageOutOfBounds;
-
-        if (self.dirty_pages.get(page_id)) |page| {
-            return page;
-        }
-
-        const cow_page = try self.allocator.alloc(u8, PAGE_SIZE);
-        errdefer self.allocator.free(cow_page);
-
+        
         const offset = page_id * PAGE_SIZE;
-        @memcpy(cow_page, self.map[offset..offset + PAGE_SIZE]);
-
-        try self.dirty_pages.put(page_id, cow_page);
-        return cow_page;
+        try self.dirty_pages.put(page_id, {});
+        return self.map[offset..offset + PAGE_SIZE];
     }
 
     pub fn allocPage(self: *Pager) !u32 {
@@ -189,8 +148,8 @@ pub const Pager = struct {
 
         if (self.meta.free_list_head != 0) {
             const page_id = self.meta.free_list_head;
-            const page = try self.getPageForWrite(page_id);
-            self.meta.free_list_head = @as(*u32, @ptrCast(@alignCast(page.ptr))).*;
+            const page = try self.getPage(page_id);
+            self.meta.free_list_head = @as(*const u32, @ptrCast(@alignCast(page.ptr))).*;
             return page_id;
         }
 
@@ -203,7 +162,7 @@ pub const Pager = struct {
                 null,
                 new_size * PAGE_SIZE,
                 posix.PROT.READ | posix.PROT.WRITE,
-                .{ .TYPE = .PRIVATE },
+                .{ .TYPE = .SHARED },
                 self.file.handle,
                 0
             );
@@ -214,10 +173,6 @@ pub const Pager = struct {
 
         const page_id = self.page_count;
         self.page_count += 1;
-        
-        const page = try self.getPageForWrite(page_id);
-        @memset(page, 0);
-        
         return page_id;
     }
 
@@ -225,7 +180,8 @@ pub const Pager = struct {
         if (!self.tx_active) return error.NoActiveTransaction;
         if (page_id == 0) return error.CannotFreeMetaPage;
         
-        const page = try self.getPageForWrite(page_id);
+        const offset = page_id * PAGE_SIZE;
+        const page = self.map[offset..offset + PAGE_SIZE];
         @as(*u32, @ptrCast(@alignCast(page.ptr))).* = self.meta.free_list_head;
         self.meta.free_list_head = page_id;
     }
