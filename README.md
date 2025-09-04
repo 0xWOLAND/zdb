@@ -6,7 +6,7 @@ This is an educational implementation of a B+ tree database inspired by [redb](h
 
 ```bash
 # Run the demo
-just test 
+just demo 
 
 # Run the benchmark 
 just bench

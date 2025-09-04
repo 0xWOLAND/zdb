@@ -59,5 +59,5 @@ pub fn main() !void {
     std.debug.assert(tree.get(400, cmp) != null);
     std.debug.assert(tree.get(799, cmp) != null);
 
-    std.log.info("✓ All tests passed!", .{});
+    std.debug.print("✓ All tests passed!\n", .{});
 }

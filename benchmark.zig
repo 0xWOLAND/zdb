@@ -54,5 +54,7 @@ pub fn main() !void {
         @as(f64, @floatFromInt(pager_write)) / n,
         @as(f64, @floatFromInt(pager_read)) / n,
     });
-    std.debug.print("Sum: {}", .{sum});
+    
+    // Prevent optimizer from removing the reads
+    std.mem.doNotOptimizeAway(sum);
 }
