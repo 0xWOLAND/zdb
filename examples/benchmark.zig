@@ -1,6 +1,6 @@
 const std = @import("std");
 const zdb = @import("zdb");
-const Pager = zdb.BTreePager;
+const Pager = zdb.Pager;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};

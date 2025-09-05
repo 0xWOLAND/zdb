@@ -1,6 +1,6 @@
 const std = @import("std");
 const zdb = @import("zdb");
-const Pager = zdb.BTreePager;
+const Pager = zdb.Pager;
 
 const TestTree = zdb.BTree(i32, []const u8, 4096, 0);
 
