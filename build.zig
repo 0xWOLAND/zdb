@@ -50,10 +50,19 @@ pub fn build(b: *std.Build) void {
     bench_step.dependOn(&bench_run.step);
 
     const test_step = b.step("test", "Run unit tests");
-    const tests = b.addTest(.{
-        .root_source_file = b.path("src/root.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    test_step.dependOn(&b.addRunArtifact(tests).step);
+    
+    // Add test for each source file
+    const test_files = [_][]const u8{
+        "src/root.zig",
+        "src/pager.zig",
+    };
+    
+    for (test_files) |test_file| {
+        const tests = b.addTest(.{
+            .root_source_file = b.path(test_file),
+            .target = target,
+            .optimize = optimize,
+        });
+        test_step.dependOn(&b.addRunArtifact(tests).step);
+    }
 }

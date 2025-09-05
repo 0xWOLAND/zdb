@@ -5,4 +5,4 @@ bench:
 	zig build bench -Doptimize=ReleaseFast
 
 test:
-	zig test src/root.zig
+	zig build test

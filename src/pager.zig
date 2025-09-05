@@ -19,22 +19,6 @@ const MetaPage = extern struct {
     _reserved: [PAGE_SIZE - 32]u8 = undefined,
 };
 
-const PageHeader = extern struct {
-    flags: PageFlags,
-    overflow: u16,
-    lower: u16,
-    upper: u16,
-};
-
-const PageFlags = packed struct(u16) {
-    branch: bool = false,
-    leaf: bool = false,
-    overflow: bool = false,
-    meta: bool = false,
-    dirty: bool = false,
-    _reserved: u11 = 0,
-};
-
 pub const Pager = struct {
     file: fs.File,
     map: []align(page_size) u8,
