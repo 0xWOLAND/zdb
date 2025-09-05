@@ -24,3 +24,4 @@ Comparison of in-memory vs persistent pager
 - [] MVCC
 - [] concurrency
 - [] make dx cleaner
+- [] more extensive tests

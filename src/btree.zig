@@ -76,17 +76,6 @@ pub fn BTree(
             };
         }
 
-        pub fn beginTx(self: *Self) !void {
-            try self.pager.beginTx();
-        }
-
-        pub fn commitTx(self: *Self) !void {
-            try self.pager.commitTx();
-        }
-
-        pub fn rollbackTx(self: *Self) void {
-            self.pager.rollbackTx();
-        }
 
         pub fn get(self: *const Self, key: Key, cmp: anytype) ?Value {
             var current_page = self.root_page_id;
@@ -123,6 +112,9 @@ pub fn BTree(
         }
 
         pub fn put(self: *Self, key: Key, value: Value, cmp: anytype) !void {
+            try self.pager.beginTx();
+            errdefer self.pager.rollbackTx();
+            
             const root_data = try self.pager.getPage(self.root_page_id);
             const root_header = @as(*const NodeHeader, @ptrCast(@alignCast(&root_data[HEADER_OFFSET]))).*;
 
@@ -135,6 +127,8 @@ pub fn BTree(
                 try self.splitRoot();
             }
             try self.insertNonFull(self.root_page_id, key, value, cmp);
+            
+            try self.pager.commitTx();
         }
 
         fn createNode(self: *Self, kind: NodeKind) !PageId {
