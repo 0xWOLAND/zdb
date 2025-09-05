@@ -39,6 +39,50 @@ pub fn BTree(
         const KEYS_OFFSET_INTERNAL = std.mem.alignForward(usize, header_size, @alignOf(Key));
         const CHILDREN_OFFSET_INTERNAL = std.mem.alignForward(usize, KEYS_OFFSET_INTERNAL + ORDER_INTERNAL * key_size, @alignOf(PageId));
 
+        inline fn getHeader(page_data: []const u8) *const NodeHeader {
+            return @as(*const NodeHeader, @ptrCast(@alignCast(&page_data[HEADER_OFFSET])));
+        }
+
+        inline fn getHeaderMut(page_data: []u8) *NodeHeader {
+            return @as(*NodeHeader, @ptrCast(@alignCast(&page_data[HEADER_OFFSET])));
+        }
+
+        inline fn getHeaderFromPtr(ptr: *anyopaque) *NodeHeader {
+            return @as(*NodeHeader, @ptrCast(@alignCast(ptr)));
+        }
+
+        inline fn getLeafKeys(page_data: []const u8) [*]const Key {
+            return @as([*]const Key, @ptrCast(@alignCast(&page_data[KEYS_OFFSET_LEAF])));
+        }
+
+        inline fn getInternalKeys(page_data: []const u8) [*]const Key {
+            return @as([*]const Key, @ptrCast(@alignCast(&page_data[KEYS_OFFSET_INTERNAL])));
+        }
+
+        inline fn getLeafKeysMut(page_data: []u8) [*]Key {
+            return @as([*]Key, @ptrCast(@alignCast(&page_data[KEYS_OFFSET_LEAF])));
+        }
+
+        inline fn getInternalKeysMut(page_data: []u8) [*]Key {
+            return @as([*]Key, @ptrCast(@alignCast(&page_data[KEYS_OFFSET_INTERNAL])));
+        }
+
+        inline fn getValues(page_data: []const u8) [*]const Value {
+            return @as([*]const Value, @ptrCast(@alignCast(&page_data[VALUES_OFFSET_LEAF])));
+        }
+
+        inline fn getValuesMut(page_data: []u8) [*]Value {
+            return @as([*]Value, @ptrCast(@alignCast(&page_data[VALUES_OFFSET_LEAF])));
+        }
+
+        inline fn getChildren(page_data: []const u8) [*]const PageId {
+            return @as([*]const PageId, @ptrCast(@alignCast(&page_data[CHILDREN_OFFSET_INTERNAL])));
+        }
+
+        inline fn getChildrenMut(page_data: []u8) [*]PageId {
+            return @as([*]PageId, @ptrCast(@alignCast(&page_data[CHILDREN_OFFSET_INTERNAL])));
+        }
+
         allocator: std.mem.Allocator,
         pager: *Pager,
         root_page_id: PageId,
@@ -50,7 +94,7 @@ pub fn BTree(
             const root_id = try pager.allocPage();
             const root_data = try pager.getPageForWrite(root_id);
 
-            const header = @as(*NodeHeader, @ptrCast(@alignCast(root_data.ptr)));
+            const header = getHeaderFromPtr(root_data.ptr);
             header.* = NodeHeader{ .kind = .leaf, .key_count = 0 };
 
             pager.meta.root_page = root_id;
@@ -76,16 +120,14 @@ pub fn BTree(
             };
         }
 
-
         pub fn get(self: *const Self, key: Key, cmp: anytype) ?Value {
             var current_page = self.root_page_id;
 
             while (true) {
                 const page_data = self.pager.getPage(current_page) catch return null;
-                const header = @as(*const NodeHeader, @ptrCast(@alignCast(&page_data[HEADER_OFFSET]))).*;
+                const header = getHeader(page_data).*;
 
-                const keys_offset = if (header.kind == .leaf) KEYS_OFFSET_LEAF else KEYS_OFFSET_INTERNAL;
-                const keys = @as([*]const Key, @ptrCast(@alignCast(&page_data[keys_offset])));
+                const keys = if (header.kind == .leaf) getLeafKeys(page_data) else getInternalKeys(page_data);
                 const keys_slice = keys[0..header.key_count];
 
                 if (header.key_count > 0) {
@@ -97,12 +139,12 @@ pub fn BTree(
 
                 switch (header.kind) {
                     .internal => {
-                        const children = @as([*]const PageId, @ptrCast(@alignCast(&page_data[CHILDREN_OFFSET_INTERNAL])));
+                        const children = getChildren(page_data);
                         current_page = children[idx];
                     },
                     .leaf => {
                         if (idx < header.key_count and cmp(keys[idx], key) == 0) {
-                            const values = @as([*]const Value, @ptrCast(@alignCast(&page_data[VALUES_OFFSET_LEAF])));
+                            const values = getValues(page_data);
                             return values[idx];
                         }
                         return null;
@@ -114,9 +156,9 @@ pub fn BTree(
         pub fn put(self: *Self, key: Key, value: Value, cmp: anytype) !void {
             try self.pager.beginTx();
             errdefer self.pager.rollbackTx();
-            
+
             const root_data = try self.pager.getPage(self.root_page_id);
-            const root_header = @as(*const NodeHeader, @ptrCast(@alignCast(&root_data[HEADER_OFFSET]))).*;
+            const root_header = getHeader(root_data).*;
 
             const is_full = switch (root_header.kind) {
                 .leaf => root_header.key_count >= ORDER_LEAF,
@@ -127,7 +169,7 @@ pub fn BTree(
                 try self.splitRoot();
             }
             try self.insertNonFull(self.root_page_id, key, value, cmp);
-            
+
             try self.pager.commitTx();
         }
 
@@ -136,7 +178,7 @@ pub fn BTree(
             const page_data = try self.pager.getPageForWrite(page_id);
             @memset(page_data, 0);
 
-            const header = @as(*NodeHeader, @ptrCast(@alignCast(page_data.ptr)));
+            const header = getHeaderFromPtr(page_data.ptr);
             header.* = NodeHeader{ .kind = kind, .key_count = 0 };
 
             if (kind == .leaf) {
@@ -148,11 +190,11 @@ pub fn BTree(
 
         fn insertNonFull(self: *Self, page_id: PageId, key: Key, value: Value, cmp: anytype) !void {
             const page_data = try self.pager.getPageForWrite(page_id);
-            const header = @as(*NodeHeader, @ptrCast(@alignCast(&page_data[HEADER_OFFSET])));
+            const header = getHeaderMut(page_data);
 
             if (header.kind == .leaf) {
-                const keys = @as([*]Key, @ptrCast(@alignCast(&page_data[KEYS_OFFSET_LEAF])));
-                const values = @as([*]Value, @ptrCast(@alignCast(&page_data[VALUES_OFFSET_LEAF])));
+                const keys = getLeafKeysMut(page_data);
+                const values = getValuesMut(page_data);
                 const key_count = header.key_count;
 
                 const idx = binarySearch(Key, keys[0..key_count], key, cmp);
@@ -173,8 +215,8 @@ pub fn BTree(
                 values[idx] = value;
                 header.key_count = key_count + 1;
             } else {
-                const keys = @as([*]Key, @ptrCast(@alignCast(&page_data[KEYS_OFFSET_INTERNAL])));
-                const children = @as([*]PageId, @ptrCast(@alignCast(&page_data[CHILDREN_OFFSET_INTERNAL])));
+                const keys = getInternalKeysMut(page_data);
+                const children = getChildrenMut(page_data);
                 const key_count = header.key_count;
 
                 const idx = binarySearch(Key, keys[0..key_count], key, cmp);
