@@ -1,5 +1,6 @@
 const std = @import("std");
-const Pager = @import("../src/pager.zig").Pager;
+const zdb = @import("zdb");
+const Pager = zdb.BTreePager;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};

@@ -1,6 +1,12 @@
 const std = @import("std");
 const Pager = @import("pager.zig").Pager;
 
+pub const BTreePager = Pager;
+
+test {
+    _ = @import("pager.zig");
+}
+
 pub fn BTree(
     comptime Key: type,
     comptime Value: type,

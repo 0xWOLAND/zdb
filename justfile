@@ -1,5 +1,8 @@
 demo:
-	zig run -O ReleaseFast scripts/demo.zig
+	zig build demo -Doptimize=ReleaseFast
 
 bench:
-	zig run -O ReleaseFast scripts/benchmark.zig
+	zig build bench -Doptimize=ReleaseFast
+
+test:
+	zig test src/root.zig

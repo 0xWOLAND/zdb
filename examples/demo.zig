@@ -1,8 +1,8 @@
 const std = @import("std");
-const root = @import("../src/root.zig");
-const Pager = @import("../src/pager.zig").Pager;
+const zdb = @import("zdb");
+const Pager = zdb.BTreePager;
 
-const TestTree = root.BTree(i32, []const u8, 4096, 0);
+const TestTree = zdb.BTree(i32, []const u8, 4096, 0);
 
 fn cmp(a: i32, b: i32) callconv(.Inline) i32 {
     return if (a < b) -1 else if (a > b) 1 else 0;
