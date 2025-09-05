@@ -156,8 +156,8 @@ pub const Pager = struct {
 
         if (self.meta.free_list_head != 0) {
             const page_id = self.meta.free_list_head;
-            const page = try self.getPage(page_id);
-            self.meta.free_list_head = @as(*const u32, @ptrCast(@alignCast(page.ptr))).*;
+            const offset = page_id * PAGE_SIZE;
+            self.meta.free_list_head = @as(*const u32, @ptrCast(@alignCast(&self.map[offset]))).*;
             return page_id;
         }
 

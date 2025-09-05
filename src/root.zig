@@ -101,9 +101,8 @@ pub fn BTree(
                 const page_data = self.pager.getPage(current_page) catch return null;
                 const header = @as(*const NodeHeader, @ptrCast(@alignCast(&page_data[HEADER_OFFSET]))).*;
 
-                const keys = @as([*]const Key, @ptrCast(@alignCast(&page_data[
-                    if (header.kind == .leaf) KEYS_OFFSET_LEAF else KEYS_OFFSET_INTERNAL
-                ])));
+                const keys_offset = if (header.kind == .leaf) KEYS_OFFSET_LEAF else KEYS_OFFSET_INTERNAL;
+                const keys = @as([*]const Key, @ptrCast(@alignCast(&page_data[keys_offset])));
                 const keys_slice = keys[0..header.key_count];
 
                 if (header.key_count > 0) {
@@ -149,7 +148,7 @@ pub fn BTree(
             const page_data = try self.pager.getPageForWrite(page_id);
             @memset(page_data, 0);
 
-            const header = @as(*NodeHeader, @ptrCast(@alignCast(&page_data[0])));
+            const header = @as(*NodeHeader, @ptrCast(@alignCast(page_data.ptr)));
             header.* = NodeHeader{ .kind = kind, .key_count = 0 };
 
             if (kind == .leaf) {
@@ -353,7 +352,7 @@ pub fn BTree(
         }
 
         fn binarySearch(comptime T: type, items: []const T, target: T, cmp: anytype) usize {
-            if (items.len <= 16) {
+            if (items.len <= 8) {
                 for (items, 0..) |item, i| {
                     if (cmp(item, target) >= 0) return i;
                 }
